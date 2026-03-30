@@ -1,0 +1,12 @@
+# Build folders
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.ide
+
+# Temp files
+*.tmp
+*.log

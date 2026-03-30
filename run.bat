@@ -1,0 +1,3 @@
+@echo off
+echo Running Stream Widget Lite...
+dotnet run

@@ -1,0 +1,331 @@
+<Window x:Class="LiteOverlay.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        xmlns:tb="http://www.hardcodet.net/taskbar"
+        Title="Stream Widget Lite" 
+        Height="600" Width="400"
+        WindowStyle="None" 
+        AllowsTransparency="True" 
+        Background="Transparent" 
+        Topmost="True"
+        ShowInTaskbar="True"
+        xml:lang="es-ES"
+        Language="es-ES">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="32" 
+                      ResizeBorderThickness="8" 
+                      GlassFrameThickness="0" 
+                      CornerRadius="0" />
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <ContextMenu x:Key="WindowMenu">
+            <MenuItem Header="Mostrar Ajustes" Click="ToggleSettings_Click" />
+            <MenuItem Header="Cambiar Modo Fantasma" IsCheckable="True" IsChecked="{Binding GhostMode, RelativeSource={RelativeSource AncestorType=Window}}" Click="GhostMode_Toggle" />
+            <Separator />
+            <MenuItem Header="Mostrar Guía de Ayuda" Click="ShowHelp_Click" />
+            <MenuItem Header="Reiniciar Posición de Ventana" Click="ResetWindow_Click" />
+            <Separator />
+            <MenuItem Header="Salir" Click="Exit_Click" />
+        </ContextMenu>
+
+        <!-- Plain Style for Guide Text (No glow) -->
+        <Style x:Key="PlainWhiteText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="20" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- Dark ComboBox Style -->
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#26262C" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderBrush" Value="#3F3F46" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton Name="ToggleButton" 
+                                          Background="{TemplateBinding Background}" 
+                                          BorderBrush="{TemplateBinding BorderBrush}" 
+                                          BorderThickness="{TemplateBinding BorderThickness}"
+                                          Foreground="{TemplateBinding Foreground}"
+                                          HorizontalContentAlignment="Left"
+                                          Grid.ColumnSpan="2" 
+                                          Focusable="False"
+                                          IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" 
+                                          ClickMode="Press">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="{TemplateBinding Background}" 
+                                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                Padding="5">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="20" />
+                                                </Grid.ColumnDefinitions>
+                                                <ContentPresenter Grid.Column="0" VerticalAlignment="Center" />
+                                                <Path Grid.Column="1" Data="M 0 0 L 4 4 L 8 0" Stroke="White" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Grid>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter Name="ContentSite" IsHitTestVisible="False" Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" Margin="10,3,30,3" VerticalAlignment="Center" />
+                            <Popup Name="Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
+                                <Grid Name="DropDown" SnapsToDevicePixels="True" MinWidth="{TemplateBinding ActualWidth}" MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <Border Name="DropDownBorder" Background="#26262C" BorderThickness="1" BorderBrush="#3F3F46"/>
+                                    <ScrollViewer Margin="4,6,4,6" SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained" />
+                                    </ScrollViewer>
+                                </Grid>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border Name="Border" Padding="10,5" SnapsToDevicePixels="True" Background="Transparent">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#3F3F46"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#4B4B52"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <!-- Tray Icon -->
+        <tb:TaskbarIcon Name="myNotifyIcon" ToolTipText="Stream Widget Lite (ES)" ContextMenu="{StaticResource WindowMenu}">
+            <tb:TaskbarIcon.IconSource>
+                <DrawingImage>
+                    <DrawingImage.Drawing>
+                        <GeometryDrawing Brush="#9146FF">
+                            <GeometryDrawing.Geometry>
+                                <EllipseGeometry Center="16,16" RadiusX="12" RadiusY="12" />
+                            </GeometryDrawing.Geometry>
+                        </GeometryDrawing>
+                    </DrawingImage.Drawing>
+                </DrawingImage>
+            </tb:TaskbarIcon.IconSource>
+        </tb:TaskbarIcon>
+
+        <Border Name="mainBorder" BorderThickness="1" BorderBrush="#44FFFFFF" Background="#01000000">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="42" x:Name="rowTitle" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Border x:Name="titleBarBorder" Grid.Row="0" MouseLeftButtonDown="Window_MouseLeftButtonDown" ContextMenu="{StaticResource WindowMenu}">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                            <GradientStop Color="#1A0A2E" Offset="0"/>
+                            <GradientStop Color="#0D0D12" Offset="0.5"/>
+                            <GradientStop Color="#0A0A10" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" WindowChrome.IsHitTestVisibleInChrome="True">
+                            <!-- Boton menú -->
+                            <Button Content="☰" Width="42" Height="42" Background="Transparent" Foreground="#CCCCDD" BorderThickness="0" Click="ToggleSettings_Click" Focusable="False" FontSize="17" ToolTip="Ajustes" Cursor="Hand" />
+                            <!-- Boton candado -->
+                            <Button Name="btnGhostToggle" Content="🔓" Width="42" Height="42" Background="Transparent" Foreground="White" BorderThickness="0" Click="GhostMode_Toggle" Focusable="False" FontSize="15" ToolTip="Bloquear ventana" Cursor="Hand" />
+                            <!-- Separador vertical -->
+                            <Border Width="1" Height="16" Background="#33FFFFFF" Margin="4,0" VerticalAlignment="Center" />
+                            <!-- Titulo -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" IsHitTestVisible="False">
+                                <TextBlock VerticalAlignment="Center" Margin="6,0,0,0">
+                                    <Run Text="STREAM" Foreground="#9D84FF" FontWeight="Black" FontSize="12"/>
+                                    <Run Text=" WIDGET" Foreground="White" FontWeight="SemiBold" FontSize="12"/>
+                                </TextBlock>
+                                <TextBlock Text=" · by liancitodev" Foreground="#55FFFFFF" FontSize="9" VerticalAlignment="Center" IsHitTestVisible="False" Margin="6,0,0,0" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button Content="—" Width="42" Height="42" Background="Transparent" Foreground="#99AABB" BorderThickness="0" Click="Minimize_Click" Focusable="False" FontSize="13" WindowChrome.IsHitTestVisibleInChrome="True" Cursor="Hand" />
+                            <Button Content="□" Width="42" Height="42" Background="Transparent" Foreground="#99AABB" BorderThickness="0" Click="Maximize_Click" Focusable="False" FontSize="13" WindowChrome.IsHitTestVisibleInChrome="True" Cursor="Hand" />
+                            <Button Content="✕" Width="42" Height="42" Background="Transparent" Foreground="#FF6B6B" BorderThickness="0" Click="Exit_Click" Focusable="False" FontSize="13" WindowChrome.IsHitTestVisibleInChrome="True" Cursor="Hand" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Content Area -->
+                <Grid Grid.Row="1">
+                    <wv2:WebView2 Name="webView" DefaultBackgroundColor="Transparent" />
+
+                    <!-- Ghost Hint -->
+                        <Border Name="ghostHint" Background="#339146FF" Visibility="Collapsed" IsHitTestVisible="False">
+                            <TextBlock Text="MODO FANTASMA ACTIVO" Foreground="White" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.5"/>
+                        </Border>
+
+                    <!-- NEW CLEAN ONBOARDING GUIDE -->
+                    <Grid Name="guideOverlay" Background="#F2000000" Visibility="Collapsed" IsHitTestVisible="True" MouseLeftButtonDown="CloseGuide_Click">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            
+                            <Canvas Grid.Row="0">
+                                <!-- Left Arrow & Text -->
+                                <Path Data="M 80,80 C 50,80 30,60 30,30" Stroke="#ADADB8" StrokeThickness="2" Canvas.Left="0" Canvas.Top="0" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                <Path Data="M 24,38 L 30,30 L 36,38" Stroke="#ADADB8" StrokeThickness="2" Canvas.Left="0" Canvas.Top="0" StrokeStartLineCap="Round" />
+                                <TextBlock Style="{StaticResource PlainWhiteText}" Text="Ajustes y Modo Bloqueo" Width="180" Canvas.Left="30" Canvas.Top="90" Foreground="#ADADB8" FontSize="16" />
+
+                                <!-- Right Arrow & Text -->
+                                <Path Data="M 320,80 C 350,80 370,60 370,30" Stroke="#ADADB8" StrokeThickness="2" Canvas.Left="0" Canvas.Top="0" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                <Path Data="M 364,38 L 370,30 L 376,38" Stroke="#ADADB8" StrokeThickness="2" Canvas.Left="0" Canvas.Top="0" StrokeStartLineCap="Round" />
+                                <TextBlock Style="{StaticResource PlainWhiteText}" Text="Controles de Ventana" Width="180" Canvas.Right="20" Canvas.Top="90" TextAlignment="Right" Foreground="#ADADB8" FontSize="16" />
+
+                                <!-- Center Info -->
+                                <StackPanel Canvas.Top="180" HorizontalAlignment="Center" Width="380" Canvas.Left="10">
+                                    <TextBlock Text="MODO OSCURO ACTIVO" Foreground="White" FontSize="22" FontWeight="Black" TextAlignment="Center" Margin="0,0,0,20"/>
+                                    <TextBlock Style="{StaticResource PlainWhiteText}" Text="• Usa el 🔒 para bloquear la ventana mientras juegas." FontSize="14" Margin="0,0,0,10" HorizontalAlignment="Center" />
+                                    <TextBlock Style="{StaticResource PlainWhiteText}" Text="• Haz clic derecho arriba para más opciones." FontSize="14" Margin="0,0,0,10" HorizontalAlignment="Center" Opacity="0.8" />
+                                    <TextBlock Style="{StaticResource PlainWhiteText}" Text="• Ajusta el volumen del bot en el menú de ajustes." FontSize="14" HorizontalAlignment="Center" Opacity="0.8" />
+                                    <TextBlock Text="(Haz clic en cualquier lugar para cerrar)" Foreground="White" FontSize="11" TextAlignment="Center" Margin="0,30,0,0" Opacity="0.4" />
+                                </StackPanel>
+                            </Canvas>
+
+                            <TextBlock Grid.Row="1" Text="by liancitodev" Foreground="White" Opacity="0.3" FontSize="12" HorizontalAlignment="Center" Margin="0,0,0,30" />
+                        </Grid>
+                    </Grid>
+
+                    <!-- Settings Panel -->
+                    <Border Name="settingsPanel" Visibility="Collapsed" Padding="0">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                <GradientStop Color="#F5100E1A" Offset="0"/>
+                                <GradientStop Color="#F518181B" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Border.Background>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="20,20,20,20">
+                                <!-- Header -->
+                                <TextBlock Text="AJUSTES" Foreground="White" FontSize="18" FontWeight="Black" Margin="0,0,0,16"/>
+
+                                <!-- Sección: URL -->
+                                <Border Background="#1AFFFFFF" CornerRadius="8" Padding="14,12" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <TextBlock Text="URL DEL WIDGET" Foreground="#9D84FF" Margin="0,0,0,6" FontSize="9" FontWeight="Bold"/>
+                                        <TextBox Name="tbUrl" Padding="8,6" Background="#26262C" Foreground="White" BorderBrush="#3F3F46" BorderThickness="1" />
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Sección: Config básica -->
+                                <Border Background="#1AFFFFFF" CornerRadius="8" Padding="14,12" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <TextBlock Text="IDIOMA" Foreground="#9D84FF" Margin="0,0,0,6" FontSize="9" FontWeight="Bold"/>
+                                        <ComboBox Name="cbLang" Padding="8" Background="#26262C" Foreground="White" BorderBrush="#3F3F46" Margin="0,0,0,12">
+                                            <ComboBoxItem Content="es" IsSelected="True" />
+                                            <ComboBoxItem Content="en" />
+                                            <ComboBoxItem Content="fr" />
+                                            <ComboBoxItem Content="de" />
+                                            <ComboBoxItem Content="pt" />
+                                            <ComboBoxItem Content="it" />
+                                        </ComboBox>
+
+                                        <TextBlock Text="VOLUMEN" Foreground="#9D84FF" Margin="0,0,0,6" FontSize="9" FontWeight="Bold"/>
+                                        <DockPanel Margin="0,0,0,12">
+                                            <TextBlock Text="{Binding Value, ElementName=sliderVolume, StringFormat={}{0:0}%}" Foreground="#9D84FF" Width="38" DockPanel.Dock="Right" TextAlignment="Right" VerticalAlignment="Center" FontWeight="Bold" FontSize="11"/>
+                                            <Slider Name="sliderVolume" Minimum="0" Maximum="100" Value="100" ValueChanged="SliderVolume_ValueChanged" />
+                                        </DockPanel>
+
+                                        <TextBlock Text="TAMAÑO DE VENTANA" Foreground="#9D84FF" Margin="0,0,0,6" FontSize="9" FontWeight="Bold"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="10" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="Ancho" Foreground="#555" FontSize="10" />
+                                                <TextBox Name="tbWidth" Padding="5" Background="#26262C" Foreground="White" BorderBrush="#3F3F46" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="Alto" Foreground="#555" FontSize="10" />
+                                                <TextBox Name="tbHeight" Padding="5" Background="#26262C" Foreground="White" BorderBrush="#3F3F46" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Sección: Voz -->
+                                <Border Background="#1AFFFFFF" CornerRadius="8" Padding="14,12" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <TextBlock Text="INTELIGENCIA DE VOZ" Foreground="#9D84FF" Margin="0,0,0,10" FontSize="9" FontWeight="Bold"/>
+                                        <CheckBox Name="cbTtsActive"  Content="Activar Voz (TTS)"        Foreground="White" Margin="0,0,0,8" IsChecked="True" />
+                                        <CheckBox Name="cbReadEmojis" Content="Leer Emojis"               Foreground="White" Margin="0,0,0,8" />
+                                        <CheckBox Name="cbReadLinks"  Content="Leer Enlaces"              Foreground="White" Margin="0,0,0,8" />
+                                        <CheckBox Name="cbReadNames"  Content="Leer Nombres de Usuario"   Foreground="White" Margin="0,0,0,8" IsChecked="True" />
+                                        <CheckBox Name="cbIgnoreBots" Content="Ignorar Bots de Twitch"    Foreground="White" Margin="0,0,0,0"  IsChecked="True" />
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Sección: Hotkey -->
+                                <Border Background="#1AFFFFFF" CornerRadius="8" Padding="14,12" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <TextBlock Text="ATAJOS DE TECLADO" Foreground="#9D84FF" Margin="0,0,0,10" FontSize="9" FontWeight="Bold"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="Mute / Unmute (TTS)" Foreground="White" FontSize="12" />
+                                                <TextBlock Text="Presiona ESC para cancelar" Foreground="#555" FontSize="9" />
+                                            </StackPanel>
+                                            <Button Name="btnHotkey" Grid.Column="1" Content="Presiona una tecla..." Width="120" Height="30" Background="#2A1A3E" Foreground="#9D84FF" BorderBrush="#9D84FF" BorderThickness="1" Click="btnHotkey_Click" IsTabStop="False" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Botones -->
+                                <Button Content="GUARDAR Y APLICAR" Height="40" FontWeight="Bold" FontSize="13" Click="Save_Click" Cursor="Hand">
+                                    <Button.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Color="#6D28D9" Offset="0"/>
+                                            <GradientStop Color="#9D84FF" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Button.Background>
+                                    <Button.Foreground><SolidColorBrush Color="White"/></Button.Foreground>
+                                    <Button.BorderThickness><Thickness>0</Thickness></Button.BorderThickness>
+                                </Button>
+                                <Button Content="RESETEAR TODO" Margin="0,8,0,0" Height="32" Background="#26262C" Foreground="#FF6B6B" BorderBrush="#FF6B6B" BorderThickness="1" Click="ResetAll_Click" Cursor="Hand" />
+                                <Button Content="Cerrar Sin Guardar" Margin="0,4,0,0" Height="28" Background="Transparent" Foreground="#555" BorderThickness="0" Click="ToggleSettings_Click" Cursor="Hand" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+
+                <!-- No ResizeGrip here, WindowChrome handles it on the borders -->
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
